@@ -1,98 +1,220 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
-
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+import { router } from "expo-router";
+import React, { useMemo, useRef, useState } from "react";
+import {
+  Animated,
+  Easing,
+  Image,
+  SafeAreaView,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+type Slide = {
+  id: number;
+  image: any;
+  title: string;
+  description: string;
+};
 
 export default function HomeScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+  const slides: Slide[] = useMemo(
+    () => [
+      {
+        id: 1,
+        image: require("../../assets/images/onboarding-store.jpg"),
+        title: "SMART POS Inventory Systems",
+        description:
+          "Manage products, inventory, sales, and customers in one simple system.",
+      },
+      {
+        id: 2,
+        image: require("../../assets/images/onboarding-store.jpg"),
+        title: "Track Sales Easily",
+        description:
+          "Monitor transactions, payment methods, and customer purchases with ease.",
+      },
+      {
+        id: 3,
+        image: require("../../assets/images/onboarding-store.jpg"),
+        title: "Handle Utang and Payments",
+        description:
+          "Keep track of receivables, due labels, and payment history in one place.",
+      },
+    ],
+    []
+  );
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const translateAnim = useRef(new Animated.Value(0)).current;
+
+  const animateSlideChange = (nextIndex: number) => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 180,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }),
+      Animated.timing(translateAnim, {
+        toValue: -20,
+        duration: 180,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setCurrentIndex(nextIndex);
+
+      translateAnim.setValue(20);
+
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 220,
+          easing: Easing.out(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(translateAnim, {
+          toValue: 0,
+          duration: 220,
+          easing: Easing.out(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]).start();
+    });
+  };
+
+  const handleNext = () => {
+    if (currentIndex < slides.length - 1) {
+      animateSlideChange(currentIndex + 1);
+    } else {
+      router.push("/auth/login");
+    }
+  };
+
+  const handleSkip = () => {
+    if (currentIndex !== slides.length - 1) {
+      animateSlideChange(slides.length - 1);
+    } else {
+      router.push("/auth/login");
+    }
+  };
+
+  const currentSlide = slides[currentIndex];
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#ffffff" }}>
+      <View
+        style={{
+          flex: 1,
+          paddingHorizontal: 24,
+          paddingTop: 20,
+          paddingBottom: 24,
+          justifyContent: "space-between",
+        }}
+      >
+        <Animated.View
+          style={{
+            flex: 1,
+            justifyContent: "center",
+            alignItems: "center",
+            opacity: fadeAnim,
+            transform: [{ translateX: translateAnim }],
+          }}
+        >
+          <Image
+            source={currentSlide.image}
+            resizeMode="contain"
+            style={{
+              width: 260,
+              height: 260,
+              marginBottom: 32,
+            }}
+          />
+
+          <Text
+            style={{
+              fontSize: 30,
+              fontWeight: "700",
+              color: "#1F2937",
+              textAlign: "center",
+              marginBottom: 14,
+            }}
+          >
+            {currentSlide.title}
+          </Text>
+
+          <Text
+            style={{
+              fontSize: 14,
+              color: "#6B7280",
+              textAlign: "center",
+              lineHeight: 22,
+              paddingHorizontal: 12,
+              maxWidth: 320,
+            }}
+          >
+            {currentSlide.description}
+          </Text>
+        </Animated.View>
+
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <TouchableOpacity onPress={handleSkip}>
+            <Text
+              style={{
+                fontSize: 16,
+                fontWeight: "600",
+                color: "#374151",
+              }}
+            >
+              Skip
+            </Text>
+          </TouchableOpacity>
+
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+            }}
+          >
+            {slides.map((_, index) => {
+              const isActive = index === currentIndex;
+
+              return (
+                <View
+                  key={index}
+                  style={{
+                    width: isActive ? 22 : 8,
+                    height: 8,
+                    borderRadius: 999,
+                    backgroundColor: isActive ? "#7F00FF" : "#D1D5DB",
+                    marginHorizontal: 4,
+                  }}
+                />
+              );
+            })}
+          </View>
+
+          <TouchableOpacity onPress={handleNext}>
+            <Text
+              style={{
+                fontSize: 16,
+                fontWeight: "600",
+                color: "#374151",
+              }}
+            >
+              {currentIndex === slides.length - 1 ? "Done" : "Next"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-  },
-});
