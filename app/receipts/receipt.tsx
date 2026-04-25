@@ -1,7 +1,9 @@
-import { businessSettings } from "@/data/mockData";
+import { useBusiness } from "@/context/BusinessContext";
 import { exportReceiptPdf } from "@/utils/receiptPdf";
 import { router, useLocalSearchParams } from "expo-router";
-import { SafeAreaView, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { useMemo } from "react";
+import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 type CartItem = {
     id?: number;
@@ -11,16 +13,28 @@ type CartItem = {
 };
 
 export default function ReceiptScreen() {
-    const { amount, paymentMethod, customerName, cart } = useLocalSearchParams<{
+    const { settings } = useBusiness();
+    const { amount, paymentMethod, customerName, cart, saleId } = useLocalSearchParams<{
         amount?: string;
         paymentMethod?: string;
         customerName?: string;
         cart?: string;
+        saleId?: string;
     }>();
 
     const parsedAmount = Number(amount ?? 0);
-    const parsedCart: CartItem[] = cart ? JSON.parse(cart) : [];
+    const parsedCart = useMemo(() => {
+        try {
+            const rawCart = Array.isArray(cart) ? cart[0] : cart;
+            return rawCart ? (JSON.parse(rawCart) as CartItem[]) : [];
+        } catch (error) {
+            console.log("Receipt cart parse error", error);
+            return [];
+        }
+    }, [cart]);
 
+    const safeCustomerName = Array.isArray(customerName) ? customerName[0] : customerName;
+    const safeSaleId = Array.isArray(saleId) ? saleId[0] : saleId;
     const dateNow = new Date().toLocaleString();
 
     return (
@@ -34,7 +48,23 @@ export default function ReceiptScreen() {
                         alignItems: "center",
                     }}
                 >
-                    <Text style={{ fontSize: 48, marginBottom: 10 }}>✅</Text>
+                    <Text
+                        style={{
+                            fontSize: 20,
+                            fontWeight: "800",
+                            color: "#111827",
+                            marginBottom: 4,
+                            textAlign: "center",
+                        }}
+                    >
+                        {settings.business_name || "Riead Store POS"}
+                    </Text>
+
+                    <Text style={{ fontSize: 12, color: "#6B7280", marginBottom: 12 }}>
+                        Official Receipt
+                    </Text>
+
+                    <Text style={{ fontSize: 48, marginBottom: 10 }}>OK</Text>
 
                     <Text style={{ fontSize: 22, fontWeight: "700", color: "#111827", marginBottom: 6 }}>
                         Payment Successful
@@ -45,7 +75,7 @@ export default function ReceiptScreen() {
                     </Text>
 
                     <Text style={{ fontSize: 30, fontWeight: "700", color: "#7F00FF", marginBottom: 20 }}>
-                        ₱{parsedAmount.toLocaleString()}
+                        PHP {parsedAmount.toLocaleString()}
                     </Text>
 
                     <View style={{ width: "100%" }}>
@@ -54,10 +84,17 @@ export default function ReceiptScreen() {
                             <Text style={{ fontWeight: "600" }}>{paymentMethod ?? "Unknown"}</Text>
                         </View>
 
-                        {customerName && (
+                        {safeSaleId && (
+                            <View style={{ marginBottom: 10 }}>
+                                <Text style={{ color: "#6B7280" }}>Sale ID</Text>
+                                <Text style={{ fontWeight: "600" }}>#{safeSaleId}</Text>
+                            </View>
+                        )}
+
+                        {safeCustomerName && (
                             <View style={{ marginBottom: 10 }}>
                                 <Text style={{ color: "#6B7280" }}>Customer</Text>
-                                <Text style={{ fontWeight: "600" }}>{customerName}</Text>
+                                <Text style={{ fontWeight: "600" }}>{safeCustomerName}</Text>
                             </View>
                         )}
 
@@ -96,7 +133,7 @@ export default function ReceiptScreen() {
                                         {item.name} x{item.qty}
                                     </Text>
                                     <Text style={{ fontWeight: "600", color: "#111827" }}>
-                                        ₱{(item.price * item.qty).toLocaleString()}
+                                        PHP {(item.price * item.qty).toLocaleString()}
                                     </Text>
                                 </View>
                             ))
@@ -109,9 +146,9 @@ export default function ReceiptScreen() {
                                 await exportReceiptPdf({
                                     amount: parsedAmount,
                                     paymentMethod: paymentMethod ?? "Unknown",
-                                    customerName,
-                                    businessName: businessSettings.business_name,
-                                    transactionId: `TXN-${Date.now()}`,
+                                    customerName: safeCustomerName,
+                                    businessName: settings.business_name || "Riead Store POS",
+                                    transactionId: safeSaleId ? `SALE-${safeSaleId}` : `TXN-${Date.now()}`,
                                     items: parsedCart,
                                 });
                             } catch (error) {
@@ -152,3 +189,4 @@ export default function ReceiptScreen() {
         </SafeAreaView>
     );
 }
+

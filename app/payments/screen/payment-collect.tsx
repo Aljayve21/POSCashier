@@ -1,12 +1,15 @@
+import api from "@/src/axios";
 import { router, useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
 import {
-    SafeAreaView,
+    ActivityIndicator,
+    Alert,
     Text,
     TextInput,
     TouchableOpacity,
     View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const paymentMethods = ["Cash", "GCash"];
 
@@ -23,6 +26,7 @@ export default function PaymentCollectScreen() {
     const originalAmount = Number(amount ?? 0);
     const [paymentAmount, setPaymentAmount] = useState(String(originalAmount));
     const [selectedMethod, setSelectedMethod] = useState("Cash");
+    const [saving, setSaving] = useState(false);
 
     const numericPaymentAmount = Number(paymentAmount || 0);
 
@@ -33,26 +37,46 @@ export default function PaymentCollectScreen() {
 
     const isFullPayment = numericPaymentAmount >= originalAmount;
 
-    const handleConfirmCollection = () => {
-        console.log("Payment collected", {
-            utangId,
-            customerName,
-            saleId,
-            originalAmount,
-            paymentAmount: numericPaymentAmount,
-            paymentMethod: selectedMethod,
-            remainingBalance,
-            status: isFullPayment ? "Paid" : "Partially Paid",
-        });
+    const handleConfirmCollection = async () => {
+        if (!utangId) {
+            Alert.alert("Missing Record", "Walang utang record na napili.");
+            return;
+        }
 
-        router.replace({
-            pathname: "/receipts/receipt",
-            params: {
-                amount: numericPaymentAmount.toString(),
-                paymentMethod: selectedMethod,
-                customerName: customerName,
-            }
-        });
+        if (numericPaymentAmount <= 0) {
+            Alert.alert("Invalid Amount", "Amount must be greater than zero.");
+            return;
+        }
+
+        if (numericPaymentAmount > originalAmount) {
+            Alert.alert("Invalid Amount", "Payment cannot exceed current balance.");
+            return;
+        }
+
+        try {
+            setSaving(true);
+
+            await api.post(`/utang/${utangId}/pay`, {
+                amount: numericPaymentAmount,
+                payment_method: selectedMethod,
+            });
+
+            router.replace({
+                pathname: "/receipts/receipt",
+                params: {
+                    amount: numericPaymentAmount.toString(),
+                    paymentMethod: selectedMethod,
+                    customerName: customerName,
+                }
+            });
+        } catch (error: any) {
+            Alert.alert(
+                "Payment Failed",
+                error.response?.data?.error || "Hindi na-save ang payment."
+            );
+        } finally {
+            setSaving(false);
+        }
     };
 
     return (
@@ -229,24 +253,29 @@ export default function PaymentCollectScreen() {
 
                 <View style={{ marginTop: "auto" }}>
                     <TouchableOpacity
+                        disabled={saving}
                         onPress={handleConfirmCollection}
                         style={{
-                            backgroundColor: "#7F00FF",
+                            backgroundColor: saving ? "#9CA3AF" : "#7F00FF",
                             borderRadius: 18,
                             paddingVertical: 16,
                             alignItems: "center",
                             marginBottom: 12,
                         }}
                     >
-                        <Text
-                            style={{
-                                color: "#FFFFFF",
-                                fontSize: 18,
-                                fontWeight: "700",
-                            }}
-                        >
-                            Confirm Payment
-                        </Text>
+                        {saving ? (
+                            <ActivityIndicator color="#FFFFFF" />
+                        ) : (
+                            <Text
+                                style={{
+                                    color: "#FFFFFF",
+                                    fontSize: 18,
+                                    fontWeight: "700",
+                                }}
+                            >
+                                Confirm Payment
+                            </Text>
+                        )}
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -275,3 +304,4 @@ export default function PaymentCollectScreen() {
         </SafeAreaView>
     );
 }
+

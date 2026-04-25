@@ -1,28 +1,34 @@
+import { useBusiness } from "@/context/BusinessContext";
+import { getBrandImageSource, getBusinessDisplayName } from "@/src/utils/branding";
 import { router } from "expo-router";
 import React, { useMemo, useRef, useState } from "react";
 import {
   Animated,
   Easing,
   Image,
-  SafeAreaView,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+
 type Slide = {
   id: number;
-  image: any;
+  image: number;
   title: string;
   description: string;
 };
 
 export default function HomeScreen() {
+  const { settings } = useBusiness();
+  const businessName = getBusinessDisplayName(settings.business_name);
+
   const slides: Slide[] = useMemo(
     () => [
       {
         id: 1,
         image: require("../../assets/images/onboarding-store.jpg"),
-        title: "SMART POS Inventory Systems",
+        title: businessName,
         description:
           "Manage products, inventory, sales, and customers in one simple system.",
       },
@@ -41,11 +47,10 @@ export default function HomeScreen() {
           "Keep track of receivables, due labels, and payment history in one place.",
       },
     ],
-    []
+    [businessName]
   );
 
   const [currentIndex, setCurrentIndex] = useState(0);
-
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const translateAnim = useRef(new Animated.Value(0)).current;
 
@@ -65,7 +70,6 @@ export default function HomeScreen() {
       }),
     ]).start(() => {
       setCurrentIndex(nextIndex);
-
       translateAnim.setValue(20);
 
       Animated.parallel([
@@ -88,23 +92,25 @@ export default function HomeScreen() {
   const handleNext = () => {
     if (currentIndex < slides.length - 1) {
       animateSlideChange(currentIndex + 1);
-    } else {
-      router.push("/auth/login");
+      return;
     }
+
+    router.push("/auth/login");
   };
 
   const handleSkip = () => {
     if (currentIndex !== slides.length - 1) {
       animateSlideChange(slides.length - 1);
-    } else {
-      router.push("/auth/login");
+      return;
     }
+
+    router.push("/auth/login");
   };
 
   const currentSlide = slides[currentIndex];
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#ffffff" }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
       <View
         style={{
           flex: 1,
@@ -123,6 +129,25 @@ export default function HomeScreen() {
             transform: [{ translateX: translateAnim }],
           }}
         >
+          <View
+            style={{
+              width: 88,
+              height: 88,
+              borderRadius: 28,
+              overflow: "hidden",
+              marginBottom: 20,
+              borderWidth: 1,
+              borderColor: "#E5E7EB",
+              backgroundColor: "#FFFFFF",
+            }}
+          >
+            <Image
+              source={getBrandImageSource(settings.logo_path)}
+              resizeMode="cover"
+              style={{ width: "100%", height: "100%" }}
+            />
+          </View>
+
           <Image
             source={currentSlide.image}
             resizeMode="contain"
@@ -167,23 +192,10 @@ export default function HomeScreen() {
           }}
         >
           <TouchableOpacity onPress={handleSkip}>
-            <Text
-              style={{
-                fontSize: 16,
-                fontWeight: "600",
-                color: "#374151",
-              }}
-            >
-              Skip
-            </Text>
+            <Text style={{ fontSize: 16, fontWeight: "600", color: "#374151" }}>Skip</Text>
           </TouchableOpacity>
 
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-            }}
-          >
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
             {slides.map((_, index) => {
               const isActive = index === currentIndex;
 
@@ -203,13 +215,7 @@ export default function HomeScreen() {
           </View>
 
           <TouchableOpacity onPress={handleNext}>
-            <Text
-              style={{
-                fontSize: 16,
-                fontWeight: "600",
-                color: "#374151",
-              }}
-            >
+            <Text style={{ fontSize: 16, fontWeight: "600", color: "#374151" }}>
               {currentIndex === slides.length - 1 ? "Done" : "Next"}
             </Text>
           </TouchableOpacity>
@@ -218,3 +224,4 @@ export default function HomeScreen() {
     </SafeAreaView>
   );
 }
+

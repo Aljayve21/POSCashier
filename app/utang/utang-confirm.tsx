@@ -2,14 +2,15 @@ import api from "@/src/axios";
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    SafeAreaView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function UtangConfirmScreen() {
   const {
@@ -68,25 +69,21 @@ export default function UtangConfirmScreen() {
 
       console.log("UTANG PAYLOAD:", payload);
 
-      const res = await api.post("/sales", payload);
+      const response = await api.post("/sales", payload);
 
-      router.replace({
+      router.push({
         pathname: "/receipts/receipt",
         params: {
           amount: parsedTotal.toString(),
           paymentMethod: "Utang",
           customerName: customerName || "Customer",
-          saleId: String(res.data.sale.id),
+          saleId: String(response.data.sale.id),
           cart: JSON.stringify(parsedCart),
         },
       });
     } catch (error: any) {
       console.log("UTANG ERROR:", error.response?.data || error.message);
-
-      Alert.alert(
-        "Failed",
-        error.response?.data?.error || "Failed to save utang"
-      );
+      Alert.alert("Failed", error.response?.data?.error || "Failed to save utang");
     } finally {
       setLoading(false);
     }
@@ -95,62 +92,45 @@ export default function UtangConfirmScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F5F5" }}>
       <View style={{ flex: 1, padding: 16 }}>
-        <Text
-          style={{
-            fontSize: 24,
-            fontWeight: "700",
-            color: "#111827",
-            marginBottom: 16,
-          }}
-        >
-          Confirm Utang
-        </Text>
+        <Text style={styles.header}>Confirm Utang</Text>
 
-        {/* CUSTOMER */}
-        <View style={card}>
-          <Text style={label}>Customer</Text>
-          <Text style={title}>{customerName}</Text>
-          <Text style={sub}>{customerPhone}</Text>
+        <View style={styles.card}>
+          <Text style={styles.label}>Customer</Text>
+          <Text style={styles.title}>{customerName}</Text>
+          <Text style={styles.sub}>{customerPhone}</Text>
         </View>
 
-        {/* AMOUNT */}
-        <View style={card}>
-          <Text style={label}>New Utang</Text>
-          <Text style={big}>₱{parsedTotal.toLocaleString()}</Text>
+        <View style={styles.card}>
+          <Text style={styles.label}>New Utang</Text>
+          <Text style={styles.big}>PHP {parsedTotal.toLocaleString()}</Text>
         </View>
 
-        {/* TOTAL */}
-        <View style={card}>
-          <Text style={label}>Updated Total</Text>
-          <Text style={{ ...big, color: "#7F00FF" }}>
-            ₱{updatedUtang.toLocaleString()}
-          </Text>
+        <View style={styles.card}>
+          <Text style={styles.label}>Updated Total</Text>
+          <Text style={[styles.big, { color: "#7F00FF" }]}>PHP {updatedUtang.toLocaleString()}</Text>
         </View>
 
-        {/* DUE LABEL */}
-        <View style={card}>
-          <Text style={label}>Due Label</Text>
+        <View style={styles.card}>
+          <Text style={styles.label}>Due Label</Text>
           <TextInput
             value={dueLabel}
             onChangeText={setDueLabel}
             placeholder="Ex: Due next week"
-            style={input}
+            style={styles.input}
           />
         </View>
 
-        {/* DUE DATE */}
-        <View style={card}>
-          <Text style={label}>Due Date (optional)</Text>
+        <View style={styles.card}>
+          <Text style={styles.label}>Due Date (optional)</Text>
           <TextInput
             value={dueDate}
             onChangeText={setDueDate}
             placeholder="YYYY-MM-DD (ex: 2026-05-01)"
-            style={input}
+            style={styles.input}
           />
         </View>
 
-        {/* ITEMS */}
-        <View style={card}>
+        <View style={styles.card}>
           <Text style={{ fontWeight: "700", marginBottom: 10 }}>Items</Text>
 
           {parsedCart.map((item: any) => (
@@ -163,12 +143,11 @@ export default function UtangConfirmScreen() {
               }}
             >
               <Text>{item.name} x{item.qty}</Text>
-              <Text>₱{(item.price * item.qty).toLocaleString()}</Text>
+              <Text>PHP {(item.price * item.qty).toLocaleString()}</Text>
             </View>
           ))}
         </View>
 
-        {/* BUTTON */}
         <TouchableOpacity
           disabled={loading}
           onPress={handleConfirmUtang}
@@ -193,42 +172,46 @@ export default function UtangConfirmScreen() {
   );
 }
 
-// STYLES
-const card = {
-  backgroundColor: "#FFFFFF",
-  borderRadius: 20,
-  padding: 16,
-  marginBottom: 12,
-};
+const styles = StyleSheet.create({
+  header: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#111827",
+    marginBottom: 16,
+  },
+  card: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 12,
+  },
+  label: {
+    fontSize: 13,
+    color: "#6B7280",
+    marginBottom: 4,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#111827",
+  },
+  sub: {
+    fontSize: 13,
+    color: "#6B7280",
+  },
+  big: {
+    fontSize: 26,
+    fontWeight: "700",
+    color: "#111827",
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: "#111827",
+  },
+});
 
-const label = {
-  fontSize: 13,
-  color: "#6B7280",
-  marginBottom: 4,
-};
 
-const title = {
-  fontSize: 20,
-  fontWeight: "700",
-  color: "#111827",
-};
-
-const sub = {
-  fontSize: 13,
-  color: "#6B7280",
-};
-
-const big = {
-  fontSize: 26,
-  fontWeight: "700",
-  color: "#111827",
-};
-
-const input = {
-  borderWidth: 1,
-  borderColor: "#E5E7EB",
-  borderRadius: 14,
-  paddingHorizontal: 12,
-  paddingVertical: 10,
-  color: "#111827",
-};

@@ -1,17 +1,24 @@
 import api from "@/src/axios";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Modal,
-  SafeAreaView,
   ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+
+type CartItem = {
+  id: number;
+  name: string;
+  price: number;
+  qty: number;
+};
 
 type UtangRecord = {
   id: number;
@@ -25,9 +32,21 @@ type UtangRecord = {
 };
 
 export default function CashierPaymentsScreen() {
+  const params = useLocalSearchParams<{
+    total?: string;
+    cart?: string;
+  }>();
+
+  const parsedTotal = Number(params.total ?? 0);
+  const parsedCart: CartItem[] = params.cart ? JSON.parse(String(params.cart)) : [];
+  const isCheckoutMode = parsedCart.length > 0 && parsedTotal > 0;
+
+  const [checkoutMethod, setCheckoutMethod] = useState("Cash");
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+
   const [utangRecords, setUtangRecords] = useState<UtangRecord[]>([]);
   const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!isCheckoutMode);
 
   const [selected, setSelected] = useState<UtangRecord | null>(null);
   const [amount, setAmount] = useState("");
@@ -47,15 +66,15 @@ export default function CashierPaymentsScreen() {
   };
 
   useEffect(() => {
-    fetchUtang();
-  }, []);
+    if (!isCheckoutMode) {
+      fetchUtang();
+    }
+  }, [isCheckoutMode]);
 
   const unpaidRecords = useMemo(() => {
     return utangRecords
       .filter((item) => !item.is_paid && Number(item.amount || 0) > 0)
-      .filter((item) =>
-        item.customer_name.toLowerCase().includes(search.toLowerCase())
-      );
+      .filter((item) => item.customer_name.toLowerCase().includes(search.toLowerCase()));
   }, [utangRecords, search]);
 
   const totalUnpaid = unpaidRecords.reduce(
@@ -73,6 +92,58 @@ export default function CashierPaymentsScreen() {
     setSelected(null);
     setAmount("");
     setPaymentMethod("Cash");
+  };
+
+  const handleCheckout = async () => {
+    if (parsedCart.length === 0 || parsedTotal <= 0) {
+      Alert.alert("Invalid Sale", "Walang items para i-checkout.");
+      return;
+    }
+
+    if (checkoutMethod === "Utang") {
+      router.push({
+        pathname: "/utang/utang-customer",
+        params: {
+          total: parsedTotal.toString(),
+          cart: JSON.stringify(parsedCart),
+        },
+      });
+      return;
+    }
+
+    try {
+      setCheckoutLoading(true);
+
+      const response = await api.post("/sales", {
+        total_amount: parsedTotal,
+        payment_method: checkoutMethod,
+        items: parsedCart.map((item) => ({
+          id: item.id,
+          name: item.name,
+          qty: item.qty,
+          price: item.price,
+        })),
+      });
+
+      router.push({
+        pathname: "/receipts/receipt",
+        params: {
+          amount: parsedTotal.toString(),
+          paymentMethod: checkoutMethod,
+          customerName: "Walk-in Customer",
+          saleId: String(response.data.sale.id),
+          cart: JSON.stringify(parsedCart),
+        },
+      });
+    } catch (error: any) {
+      console.log("Checkout error:", error.response?.data || error.message);
+      Alert.alert(
+        "Checkout Failed",
+        error.response?.data?.error || "Hindi na-save ang sale."
+      );
+    } finally {
+      setCheckoutLoading(false);
+    }
   };
 
   const handlePay = async () => {
@@ -113,6 +184,164 @@ export default function CashierPaymentsScreen() {
     }
   };
 
+  if (isCheckoutMode) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F5F5" }}>
+        <View style={{ flex: 1, padding: 16 }}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 14,
+              backgroundColor: "#FFFFFF",
+              justifyContent: "center",
+              alignItems: "center",
+              marginBottom: 16,
+            }}
+          >
+            <Text style={{ fontSize: 18 }}>{"<"}</Text>
+          </TouchableOpacity>
+
+          <Text style={{ fontSize: 26, fontWeight: "800", color: "#111827", marginBottom: 4 }}>
+            Checkout
+          </Text>
+          <Text style={{ color: "#6B7280", marginBottom: 16 }}>
+            Piliin ang payment method para sa current sale.
+          </Text>
+
+          <View
+            style={{
+              backgroundColor: "#FFFFFF",
+              borderRadius: 22,
+              padding: 18,
+              marginBottom: 16,
+            }}
+          >
+            <Text style={{ color: "#6B7280", marginBottom: 6 }}>Total Amount</Text>
+            <Text style={{ color: "#111827", fontSize: 32, fontWeight: "800" }}>
+              PHP {parsedTotal.toLocaleString()}
+            </Text>
+            <Text style={{ color: "#6B7280", marginTop: 6 }}>
+              {parsedCart.length} item(s)
+            </Text>
+          </View>
+
+          <View
+            style={{
+              backgroundColor: "#FFFFFF",
+              borderRadius: 22,
+              padding: 18,
+              marginBottom: 16,
+            }}
+          >
+            <Text style={{ fontSize: 16, fontWeight: "700", color: "#111827", marginBottom: 12 }}>
+              Items
+            </Text>
+            <ScrollView style={{ maxHeight: 180 }} showsVerticalScrollIndicator={false}>
+              {parsedCart.map((item) => (
+                <View
+                  key={item.id}
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                    marginBottom: 10,
+                  }}
+                >
+                  <Text style={{ color: "#111827", flex: 1 }}>
+                    {item.name} x{item.qty}
+                  </Text>
+                  <Text style={{ color: "#111827", fontWeight: "700" }}>
+                    PHP {(item.price * item.qty).toLocaleString()}
+                  </Text>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+
+          <View
+            style={{
+              backgroundColor: "#FFFFFF",
+              borderRadius: 22,
+              padding: 18,
+              marginBottom: 18,
+            }}
+          >
+            <Text style={{ fontSize: 16, fontWeight: "700", color: "#111827", marginBottom: 12 }}>
+              Payment Method
+            </Text>
+            {["Cash", "GCash", "Utang"].map((method) => {
+              const isActive = checkoutMethod === method;
+              return (
+                <TouchableOpacity
+                  key={method}
+                  onPress={() => setCheckoutMethod(method)}
+                  style={{
+                    backgroundColor: isActive ? "#7F00FF" : "#FFFFFF",
+                    borderRadius: 16,
+                    paddingVertical: 14,
+                    paddingHorizontal: 14,
+                    marginBottom: 10,
+                    borderWidth: 1,
+                    borderColor: isActive ? "#7F00FF" : "#E5E7EB",
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: isActive ? "#FFFFFF" : "#111827",
+                      fontSize: 15,
+                      fontWeight: "600",
+                    }}
+                  >
+                    {method}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <View style={{ marginTop: "auto" }}>
+            <TouchableOpacity
+              disabled={checkoutLoading}
+              onPress={handleCheckout}
+              style={{
+                backgroundColor: checkoutLoading ? "#9CA3AF" : "#7F00FF",
+                borderRadius: 18,
+                paddingVertical: 16,
+                alignItems: "center",
+                marginBottom: 12,
+              }}
+            >
+              {checkoutLoading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={{ color: "#FFFFFF", fontSize: 18, fontWeight: "700" }}>
+                  {checkoutMethod === "Utang" ? "Proceed to Customer" : "Confirm Sale"}
+                </Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => router.back()}
+              style={{
+                backgroundColor: "#FFFFFF",
+                borderRadius: 18,
+                paddingVertical: 16,
+                alignItems: "center",
+                borderWidth: 1,
+                borderColor: "#E5E7EB",
+              }}
+            >
+              <Text style={{ color: "#111827", fontSize: 16, fontWeight: "600" }}>
+                Back
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F5F5" }}>
       <View style={{ flex: 1, padding: 16 }}>
@@ -128,7 +357,7 @@ export default function CashierPaymentsScreen() {
             marginBottom: 16,
           }}
         >
-          <Text style={{ fontSize: 18 }}>←</Text>
+          <Text style={{ fontSize: 18 }}>{"<"}</Text>
         </TouchableOpacity>
 
         <Text
@@ -158,7 +387,7 @@ export default function CashierPaymentsScreen() {
             Total Unpaid
           </Text>
           <Text style={{ color: "#FFFFFF", fontSize: 32, fontWeight: "800" }}>
-            ₱{totalUnpaid.toLocaleString()}
+            PHP {totalUnpaid.toLocaleString()}
           </Text>
         </View>
 
@@ -236,10 +465,7 @@ export default function CashierPaymentsScreen() {
                         </Text>
 
                         <Text style={{ color: "#6B7280", marginTop: 2 }}>
-                          Due:{" "}
-                          {item.due_date
-                            ? new Date(item.due_date).toLocaleDateString()
-                            : "No date"}
+                          Due: {item.due_date ? new Date(item.due_date).toLocaleDateString() : "No date"}
                         </Text>
                       </View>
 
@@ -270,7 +496,7 @@ export default function CashierPaymentsScreen() {
                         color: "#7F00FF",
                       }}
                     >
-                      ₱{Number(item.amount || 0).toLocaleString()}
+                      PHP {Number(item.amount || 0).toLocaleString()}
                     </Text>
 
                     <Text style={{ color: "#6B7280", marginTop: 6 }}>
@@ -351,8 +577,7 @@ function PaymentModal({
           </Text>
 
           <Text style={{ color: "#6B7280", marginBottom: 16 }}>
-            {record.customer_name} · Balance ₱
-            {Number(record.amount || 0).toLocaleString()}
+            {record.customer_name} � Balance PHP {Number(record.amount || 0).toLocaleString()}
           </Text>
 
           <Text style={{ fontWeight: "700", color: "#111827", marginBottom: 6 }}>
@@ -457,3 +682,5 @@ function isOverdue(item: UtangRecord) {
 
   return due < today;
 }
+
+
