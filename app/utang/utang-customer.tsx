@@ -1,7 +1,9 @@
-import { customers } from "@/data/mockData";
+import api from "@/src/axios";
 import { router, useLocalSearchParams } from "expo-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
+    ActivityIndicator,
+    Alert,
     SafeAreaView,
     ScrollView,
     Text,
@@ -10,184 +12,223 @@ import {
     View,
 } from "react-native";
 
+type Customer = {
+  id: number;
+  name: string;
+  phone?: string;
+  total_transactions?: number;
+  total_utang?: number;
+};
 
 export default function UtangCustomerScreen() {
-    const { total } = useLocalSearchParams<{ total?: string }>();
-    const [search, setSearch] = useState("");
+  const { total, cart } = useLocalSearchParams<{
+    total?: string;
+    cart?: string;
+  }>();
 
-    const parsedTotal = Number(total ?? 0);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
 
-    const filteredCustomers = useMemo(() => {
-        const keyword = search.trim().toLowerCase();
+  const parsedTotal = Number(total ?? 0);
 
-        if (!keyword) return customers;
+  const fetchCustomers = async () => {
+    try {
+      const res = await api.get("/customers");
+      setCustomers(res.data);
+    } catch (error: any) {
+      console.log("Customers error:", error.response?.data || error.message);
+      Alert.alert("Error", "Hindi ma-load ang customers.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-        return customers.filter(
-            (customer) =>
-                customer.name.toLowerCase().includes(keyword) ||
-                customer.phone.includes(keyword)
-        );
-    }, [search]);
+  useEffect(() => {
+    fetchCustomers();
+  }, []);
 
-    const handleSelectCustomer = (customer: (typeof customers)[0]) => {
-        router.push({
-            pathname: "/utang/utang-confirm",
-            params: {
-                total: parsedTotal.toString(),
-                customerId: customer.id.toString(),
-                customerName: customer.name,
-                customerPhone: customer.phone,
-                totalUtang: customer.total_utang.toString(),
-            },
-        });
-    };
+  const filteredCustomers = useMemo(() => {
+    const keyword = search.trim().toLowerCase();
 
-    return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F5F5" }}>
-            <View style={{ flex: 1, padding: 16 }}>
-                <Text
-                    style={{
-                        fontSize: 24,
-                        fontWeight: "700",
-                        color: "#111827",
-                        marginBottom: 8,
-                    }}
+    if (!keyword) return customers;
+
+    return customers.filter((customer) => {
+      const name = customer.name || "";
+      const phone = customer.phone || "";
+
+      return (
+        name.toLowerCase().includes(keyword) ||
+        phone.toLowerCase().includes(keyword)
+      );
+    });
+  }, [customers, search]);
+
+  const handleSelectCustomer = (customer: Customer) => {
+    router.push({
+      pathname: "/utang/utang-confirm",
+      params: {
+        total: parsedTotal.toString(),
+        cart: cart?.toString() ?? "[]",
+        customerId: customer.id.toString(),
+        customerName: customer.name,
+        customerPhone: customer.phone || "",
+        totalUtang: Number(customer.total_utang || 0).toString(),
+      },
+    });
+  };
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F5F5" }}>
+      <View style={{ flex: 1, padding: 16 }}>
+        <Text
+          style={{
+            fontSize: 24,
+            fontWeight: "700",
+            color: "#111827",
+            marginBottom: 8,
+          }}
+        >
+          Select Customer
+        </Text>
+
+        <Text
+          style={{
+            fontSize: 14,
+            color: "#6B7280",
+            marginBottom: 16,
+          }}
+        >
+          Choose a customer for this utang transaction.
+        </Text>
+
+        <View
+          style={{
+            backgroundColor: "#FFFFFF",
+            borderRadius: 16,
+            paddingHorizontal: 14,
+            paddingVertical: 4,
+            marginBottom: 16,
+            borderWidth: 1,
+            borderColor: "#E5E7EB",
+          }}
+        >
+          <TextInput
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Search customer name or phone"
+            placeholderTextColor="#9CA3AF"
+            style={{
+              height: 48,
+              fontSize: 15,
+              color: "#111827",
+            }}
+          />
+        </View>
+
+        <View
+          style={{
+            backgroundColor: "#FFFFFF",
+            borderRadius: 18,
+            padding: 16,
+            marginBottom: 16,
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 13,
+              color: "#6B7280",
+              marginBottom: 6,
+            }}
+          >
+            Utang Amount
+          </Text>
+          <Text
+            style={{
+              fontSize: 28,
+              fontWeight: "700",
+              color: "#111827",
+            }}
+          >
+            ₱{parsedTotal.toLocaleString()}
+          </Text>
+        </View>
+
+        {loading ? (
+          <ActivityIndicator color="#7F00FF" />
+        ) : (
+          <ScrollView showsVerticalScrollIndicator={false}>
+            {filteredCustomers.length === 0 ? (
+              <View
+                style={{
+                  backgroundColor: "#FFFFFF",
+                  borderRadius: 18,
+                  padding: 18,
+                }}
+              >
+                <Text style={{ color: "#6B7280" }}>No customer found.</Text>
+              </View>
+            ) : (
+              filteredCustomers.map((customer) => (
+                <TouchableOpacity
+                  key={customer.id}
+                  onPress={() => handleSelectCustomer(customer)}
+                  style={{
+                    backgroundColor: "#FFFFFF",
+                    borderRadius: 18,
+                    padding: 16,
+                    marginBottom: 12,
+                    borderWidth: 1,
+                    borderColor: "#E5E7EB",
+                  }}
                 >
-                    Select Customer
-                </Text>
-
-                <Text
+                  <Text
                     style={{
-                        fontSize: 14,
-                        color: "#6B7280",
-                        marginBottom: 16,
+                      fontSize: 17,
+                      fontWeight: "700",
+                      color: "#111827",
+                      marginBottom: 6,
                     }}
-                >
-                    Choose a customer for this utang transaction.
-                </Text>
+                  >
+                    {customer.name}
+                  </Text>
 
-                <View
+                  <Text
                     style={{
-                        backgroundColor: "#FFFFFF",
-                        borderRadius: 16,
-                        paddingHorizontal: 14,
-                        paddingVertical: 4,
-                        marginBottom: 16,
-                        borderWidth: 1,
-                        borderColor: "#E5E7EB",
+                      fontSize: 14,
+                      color: "#6B7280",
+                      marginBottom: 4,
                     }}
-                >
-                    <TextInput
-                        value={search}
-                        onChangeText={setSearch}
-                        placeholder="Search customer name or phone"
-                        placeholderTextColor="#9CA3AF"
-                        style={{
-                            height: 48,
-                            fontSize: 15,
-                            color: "#111827",
-                        }}
-                    />
-                </View>
+                  >
+                    Phone: {customer.phone || "N/A"}
+                  </Text>
 
-                <View
+                  <Text
                     style={{
-                        backgroundColor: "#FFFFFF",
-                        borderRadius: 18,
-                        padding: 16,
-                        marginBottom: 16,
+                      fontSize: 14,
+                      color: "#6B7280",
+                      marginBottom: 4,
                     }}
-                >
-                    <Text
-                        style={{
-                            fontSize: 13,
-                            color: "#6B7280",
-                            marginBottom: 6,
-                        }}
-                    >
-                        Utang Amount
-                    </Text>
-                    <Text
-                        style={{
-                            fontSize: 28,
-                            fontWeight: "700",
-                            color: "#111827",
-                        }}
-                    >
-                        ₱{parsedTotal.toLocaleString()}
-                    </Text>
-                </View>
+                  >
+                    Transactions: {customer.total_transactions || 0}
+                  </Text>
 
-                <ScrollView showsVerticalScrollIndicator={false}>
-                    {filteredCustomers.length === 0 ? (
-                        <View
-                            style={{
-                                backgroundColor: "#FFFFFF",
-                                borderRadius: 18,
-                                padding: 18,
-                            }}
-                        >
-                            <Text style={{ color: "#6B7280" }}>No customer found.</Text>
-                        </View>
-                    ) : (
-                        filteredCustomers.map((customer) => (
-                            <TouchableOpacity
-                                key={customer.id}
-                                onPress={() => handleSelectCustomer(customer)}
-                                style={{
-                                    backgroundColor: "#FFFFFF",
-                                    borderRadius: 18,
-                                    padding: 16,
-                                    marginBottom: 12,
-                                    borderWidth: 1,
-                                    borderColor: "#E5E7EB",
-                                }}
-                            >
-                                <Text
-                                    style={{
-                                        fontSize: 17,
-                                        fontWeight: "700",
-                                        color: "#111827",
-                                        marginBottom: 6,
-                                    }}
-                                >
-                                    {customer.name}
-                                </Text>
-
-                                <Text
-                                    style={{
-                                        fontSize: 14,
-                                        color: "#6B7280",
-                                        marginBottom: 4,
-                                    }}
-                                >
-                                    Phone: {customer.phone}
-                                </Text>
-
-                                <Text
-                                    style={{
-                                        fontSize: 14,
-                                        color: "#6B7280",
-                                        marginBottom: 4,
-                                    }}
-                                >
-                                    Transactions: {customer.total_transactions}
-                                </Text>
-
-                                <Text
-                                    style={{
-                                        fontSize: 14,
-                                        fontWeight: "600",
-                                        color: "#7F00FF",
-                                    }}
-                                >
-                                    Current Utang: ₱{customer.total_utang.toLocaleString()}
-                                </Text>
-                            </TouchableOpacity>
-                        ))
-                    )}
-                </ScrollView>
-            </View>
-        </SafeAreaView>
-    );
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      fontWeight: "600",
+                      color: "#7F00FF",
+                    }}
+                  >
+                    Current Utang: ₱
+                    {Number(customer.total_utang || 0).toLocaleString()}
+                  </Text>
+                </TouchableOpacity>
+              ))
+            )}
+          </ScrollView>
+        )}
+      </View>
+    </SafeAreaView>
+  );
 }

@@ -1,237 +1,99 @@
+import { useTheme } from "@/context/ThemeContext";
 import { transactionHistory, utangRecords } from "@/data/mockData";
 import { exportPdf } from "@/utils/receiptPdf";
-
+import { router } from "expo-router";
 import { useMemo } from "react";
 import { SafeAreaView, ScrollView, Text, TouchableOpacity, View } from "react-native";
 
 export default function ReportsScreen() {
-    const summary = useMemo(() => {
-        const completed = transactionHistory.filter(
-            (item) => item.status === "Completed"
-        );
+  const { theme, toggleTheme } = useTheme();
 
-        const cashSales = completed
-            .filter((item) => item.payment_method === "Cash")
-            .reduce((sum, item) => sum + item.amount, 0);
+  const summary = useMemo(() => {
+    const completed = transactionHistory.filter((i) => i.status === "Completed");
+    const cashSales = completed.filter((i) => i.payment_method === "Cash").reduce((s, i) => s + i.amount, 0);
+    const gcashSales = completed.filter((i) => i.payment_method === "GCash").reduce((s, i) => s + i.amount, 0);
+    const utangSales = transactionHistory.filter((i) => i.payment_method === "Utang").reduce((s, i) => s + i.amount, 0);
+    const totalSales = completed.reduce((s, i) => s + i.amount, 0);
+    const pendingUtang = utangRecords.filter((i) => !i.is_paid).reduce((s, i) => s + i.amount, 0);
+    return { totalSales, cashSales, gcashSales, utangSales, pendingUtang, completedCount: completed.length, cancelledCount: transactionHistory.filter((i) => i.status === "Cancelled").length, pendingCount: transactionHistory.filter((i) => i.status === "Pending").length, totalTransactions: transactionHistory.length };
+  }, []);
 
-        const gcashSales = completed
-            .filter((item) => item.payment_method === "GCash")
-            .reduce((sum, item) => sum + item.amount, 0);
+  const cards = [
+    { label: "Cash Sales", value: `₱${summary.cashSales.toLocaleString()}`, color: theme.success, icon: "💵" },
+    { label: "GCash Sales", value: `₱${summary.gcashSales.toLocaleString()}`, color: "#0EA5E9", icon: "📱" },
+    { label: "Utang Sales", value: `₱${summary.utangSales.toLocaleString()}`, color: theme.warning, icon: "📋" },
+    { label: "Pending Utang", value: `₱${summary.pendingUtang.toLocaleString()}`, color: theme.danger, icon: "⚠️" },
+    { label: "Completed", value: summary.completedCount.toString(), color: theme.success, icon: "✅" },
+    { label: "Pending", value: summary.pendingCount.toString(), color: theme.warning, icon: "⏳" },
+    { label: "Cancelled", value: summary.cancelledCount.toString(), color: theme.danger, icon: "❌" },
+    { label: "Total", value: summary.totalTransactions.toString(), color: theme.accent, icon: "📊" },
+  ];
 
-        const utangSales = transactionHistory
-            .filter((item) => item.payment_method === "Utang")
-            .reduce((sum, item) => sum + item.amount, 0);
-
-        const totalSales = completed.reduce((sum, item) => sum + item.amount, 0);
-
-        const pendingUtang = utangRecords
-            .filter((item) => !item.is_paid)
-            .reduce((sum, item) => sum + item.amount, 0);
-
-        return {
-            totalSales,
-            cashSales,
-            gcashSales,
-            utangSales,
-            pendingUtang,
-            completedCount: completed.length,
-            cancelledCount: transactionHistory.filter(
-                (item) => item.status === "Cancelled"
-            ).length,
-            pendingCount: transactionHistory.filter((item) => item.status === "Pending")
-                .length,
-            totalTransactions: transactionHistory.length,
-        };
-    }, []);
-
-    const handleExportReport = async () => {
-        await exportPdf({
-            title: "Cashier Report",
-            htmlBody: `
-        <h3>Sales Summary</h3>
-        <table border="1" cellspacing="0" cellpadding="8" style="width:100%; border-collapse:collapse;">
-          <tr><td><strong>Total Completed Sales</strong></td><td>₱${summary.totalSales.toLocaleString()}</td></tr>
-          <tr><td><strong>Cash Sales</strong></td><td>₱${summary.cashSales.toLocaleString()}</td></tr>
-          <tr><td><strong>GCash Sales</strong></td><td>₱${summary.gcashSales.toLocaleString()}</td></tr>
-          <tr><td><strong>Utang Sales</strong></td><td>₱${summary.utangSales.toLocaleString()}</td></tr>
-          <tr><td><strong>Pending Utang</strong></td><td>₱${summary.pendingUtang.toLocaleString()}</td></tr>
-        </table>
-
-        <h3>Transaction Counts</h3>
-        <table border="1" cellspacing="0" cellpadding="8" style="width:100%; border-collapse:collapse;">
-          <tr><td><strong>Total Transactions</strong></td><td>${summary.totalTransactions}</td></tr>
-          <tr><td><strong>Completed</strong></td><td>${summary.completedCount}</td></tr>
-          <tr><td><strong>Pending</strong></td><td>${summary.pendingCount}</td></tr>
-          <tr><td><strong>Cancelled</strong></td><td>${summary.cancelledCount}</td></tr>
-        </table>
-      `,
-        });
-    };
-
-    return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F5F5" }}>
-            <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
-                <Text
-                    style={{
-                        fontSize: 24,
-                        fontWeight: "700",
-                        color: "#111827",
-                        marginBottom: 6,
-                    }}
-                >
-                    Reports
-                </Text>
-
-                <Text style={{ color: "#6B7280", marginBottom: 16 }}>
-                    Basic cashier report summary
-                </Text>
-
-                <TouchableOpacity
-                    onPress={handleExportReport}
-                    style={{
-                        backgroundColor: "#7F00FF",
-                        borderRadius: 14,
-                        paddingVertical: 12,
-                        alignItems: "center",
-                        marginBottom: 16,
-                    }}
-                >
-                    <Text style={{ color: "#FFFFFF", fontWeight: "700" }}>
-                        Export Report PDF
-                    </Text>
-                </TouchableOpacity>
-
-                <View
-                    style={{
-                        backgroundColor: "#7F00FF",
-                        borderRadius: 22,
-                        padding: 18,
-                        marginBottom: 16,
-                    }}
-                >
-                    <Text style={{ color: "#E9D5FF", marginBottom: 8 }}>
-                        Total Completed Sales
-                    </Text>
-                    <Text style={{ color: "#FFFFFF", fontSize: 32, fontWeight: "700" }}>
-                        ₱{summary.totalSales.toLocaleString()}
-                    </Text>
-                </View>
-
-                <View
-                    style={{
-                        flexDirection: "row",
-                        flexWrap: "wrap",
-                        justifyContent: "space-between",
-                    }}
-                >
-                    <ReportCard title="Cash Sales" value={`₱${summary.cashSales.toLocaleString()}`} />
-                    <ReportCard title="GCash Sales" value={`₱${summary.gcashSales.toLocaleString()}`} />
-                    <ReportCard title="Utang Sales" value={`₱${summary.utangSales.toLocaleString()}`} />
-                    <ReportCard title="Pending Utang" value={`₱${summary.pendingUtang.toLocaleString()}`} />
-                    <ReportCard title="Transactions" value={summary.totalTransactions.toString()} />
-                    <ReportCard title="Completed" value={summary.completedCount.toString()} />
-                    <ReportCard title="Pending" value={summary.pendingCount.toString()} />
-                    <ReportCard title="Cancelled" value={summary.cancelledCount.toString()} />
-                </View>
-
-                <View
-                    style={{
-                        backgroundColor: "#FFFFFF",
-                        borderRadius: 20,
-                        padding: 16,
-                        marginTop: 8,
-                    }}
-                >
-                    <Text
-                        style={{
-                            fontSize: 18,
-                            fontWeight: "700",
-                            color: "#111827",
-                            marginBottom: 12,
-                        }}
-                    >
-                        Payment Breakdown
-                    </Text>
-
-                    <BreakdownRow label="Cash" value={summary.cashSales} total={summary.totalSales} />
-                    <BreakdownRow label="GCash" value={summary.gcashSales} total={summary.totalSales} />
-                    <BreakdownRow
-                        label="Utang"
-                        value={summary.utangSales}
-                        total={summary.totalSales + summary.utangSales}
-                    />
-                </View>
-            </ScrollView>
-        </SafeAreaView>
-    );
-}
-
-function ReportCard({ title, value }: { title: string; value: string }) {
-    return (
-        <View
-            style={{
-                width: "48%",
-                backgroundColor: "#FFFFFF",
-                borderRadius: 18,
-                padding: 16,
-                marginBottom: 12,
-                borderWidth: 1,
-                borderColor: "#E5E7EB",
-            }}
-        >
-            <Text style={{ color: "#6B7280", fontSize: 13, marginBottom: 8 }}>
-                {title}
-            </Text>
-            <Text style={{ color: "#111827", fontSize: 20, fontWeight: "700" }}>
-                {value}
-            </Text>
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 40 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 20 }}>
+          <TouchableOpacity onPress={() => router.back()} style={{ width: 40, height: 40, borderRadius: 14, backgroundColor: theme.bgCard, borderWidth: 1, borderColor: theme.border, justifyContent: "center", alignItems: "center", marginRight: 14 }}>
+            <Text style={{ fontSize: 18 }}>←</Text>
+          </TouchableOpacity>
+          <Text style={{ flex: 1, fontSize: 24, fontWeight: "800", color: theme.textPrimary, letterSpacing: -0.5 }}>Reports</Text>
+          <TouchableOpacity onPress={toggleTheme} style={{ width: 40, height: 40, borderRadius: 14, backgroundColor: theme.bgCard, borderWidth: 1, borderColor: theme.border, justifyContent: "center", alignItems: "center" }}>
+            <Text style={{ fontSize: 18 }}>{theme.dark ? "☀️" : "🌙"}</Text>
+          </TouchableOpacity>
         </View>
-    );
-}
 
-function BreakdownRow({
-    label,
-    value,
-    total,
-}: {
-    label: string;
-    value: number;
-    total: number;
-}) {
-    const percent = total > 0 ? Math.round((value / total) * 100) : 0;
-
-    return (
-        <View style={{ marginBottom: 14 }}>
-            <View
-                style={{
-                    flexDirection: "row",
-                    justifyContent: "space-between",
-                    marginBottom: 6,
-                }}
-            >
-                <Text style={{ color: "#374151", fontWeight: "600" }}>{label}</Text>
-                <Text style={{ color: "#111827", fontWeight: "700" }}>
-                    ₱{value.toLocaleString()} · {percent}%
-                </Text>
-            </View>
-
-            <View
-                style={{
-                    height: 8,
-                    backgroundColor: "#E5E7EB",
-                    borderRadius: 999,
-                    overflow: "hidden",
-                }}
-            >
-                <View
-                    style={{
-                        height: 8,
-                        width: `${percent}%`,
-                        backgroundColor: "#7F00FF",
-                        borderRadius: 999,
-                    }}
-                />
-            </View>
+        {/* Hero total */}
+        <View style={{ backgroundColor: theme.accent, borderRadius: 28, padding: 24, marginBottom: 20, overflow: "hidden" }}>
+          <View style={{ position: "absolute", top: -30, right: -30, width: 150, height: 150, borderRadius: 75, backgroundColor: "rgba(255,255,255,0.07)" }} />
+          <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 12, fontWeight: "600", letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 8 }}>Total Completed Sales</Text>
+          <Text style={{ color: "#FFF", fontSize: 40, fontWeight: "800", letterSpacing: -1, marginBottom: 6 }}>₱{summary.totalSales.toLocaleString()}</Text>
+          <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: 13, fontWeight: "600" }}>April 2026 · All Transactions</Text>
         </View>
-    );
+
+        <TouchableOpacity onPress={() => exportPdf({ title: "Cashier Report", htmlBody: `<h3>Total: ₱${summary.totalSales.toLocaleString()}</h3>` })} style={{ height: 52, borderRadius: 16, borderWidth: 1.5, borderColor: theme.accent, alignItems: "center", justifyContent: "center", marginBottom: 24 }}>
+          <Text style={{ color: theme.accent, fontWeight: "700", fontSize: 15 }}>📄 Export PDF Report</Text>
+        </TouchableOpacity>
+
+        {/* Grid cards */}
+        <Text style={{ fontSize: 16, fontWeight: "800", color: theme.textPrimary, marginBottom: 14 }}>Breakdown</Text>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", marginBottom: 24 }}>
+          {cards.map((card) => (
+            <View key={card.label} style={{ width: "48%", backgroundColor: theme.bgCard, borderRadius: 20, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: theme.border }}>
+              <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 10 }}>
+                <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: card.color + "22", justifyContent: "center", alignItems: "center", marginRight: 8 }}>
+                  <Text style={{ fontSize: 16 }}>{card.icon}</Text>
+                </View>
+                <Text style={{ fontSize: 12, color: theme.textMuted, fontWeight: "600" }}>{card.label}</Text>
+              </View>
+              <Text style={{ fontSize: 22, fontWeight: "800", color: card.color }}>{card.value}</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Payment breakdown bars */}
+        <View style={{ backgroundColor: theme.bgCard, borderRadius: 24, padding: 20, borderWidth: 1, borderColor: theme.border }}>
+          <Text style={{ fontSize: 16, fontWeight: "800", color: theme.textPrimary, marginBottom: 18 }}>Payment Breakdown</Text>
+          {[
+            { label: "Cash", value: summary.cashSales, color: theme.success },
+            { label: "GCash", value: summary.gcashSales, color: "#0EA5E9" },
+            { label: "Utang", value: summary.utangSales, color: theme.warning },
+          ].map((b) => {
+            const total = summary.totalSales + summary.utangSales;
+            const pct = total > 0 ? Math.round((b.value / total) * 100) : 0;
+            return (
+              <View key={b.label} style={{ marginBottom: 16 }}>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
+                  <Text style={{ color: theme.textSecondary, fontWeight: "700", fontSize: 14 }}>{b.label}</Text>
+                  <Text style={{ color: theme.textPrimary, fontWeight: "800", fontSize: 14 }}>₱{b.value.toLocaleString()} · {pct}%</Text>
+                </View>
+                <View style={{ height: 8, backgroundColor: theme.bgSubtle, borderRadius: 4, overflow: "hidden" }}>
+                  <View style={{ height: 8, width: `${pct}%`, backgroundColor: b.color, borderRadius: 4 }} />
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
 }

@@ -1,191 +1,234 @@
+import api from "@/src/axios";
 import { router, useLocalSearchParams } from "expo-router";
-import { SafeAreaView, Text, TouchableOpacity, View } from "react-native";
+import { useState } from "react";
+import {
+    ActivityIndicator,
+    Alert,
+    SafeAreaView,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from "react-native";
 
 export default function UtangConfirmScreen() {
-    const {
-        total,
-        customerId,
-        customerName,
-        customerPhone,
-        totalUtang,
-    } = useLocalSearchParams<{
-        total?: string;
-        customerId?: string;
-        customerName?: string;
-        customerPhone?: string;
-        totalUtang?: string;
-    }>();
+  const {
+    total,
+    cart,
+    customerId,
+    customerName,
+    customerPhone,
+    totalUtang,
+  } = useLocalSearchParams<{
+    total?: string;
+    cart?: string;
+    customerId?: string;
+    customerName?: string;
+    customerPhone?: string;
+    totalUtang?: string;
+  }>();
 
-    const parsedTotal = Number(total ?? 0);
-    const parsedExistingUtang = Number(totalUtang ?? 0);
-    const updatedUtang = parsedExistingUtang + parsedTotal;
+  const [loading, setLoading] = useState(false);
+  const [dueLabel, setDueLabel] = useState("");
+  const [dueDate, setDueDate] = useState("");
 
-    const handleConfirmUtang = () => {
-        console.log("Utang saved", {
-            customerId,
-            customerName,
-            amount: parsedTotal,
-            updatedTotalUtang: updatedUtang,
-        });
+  const parsedTotal = Number(total ?? 0);
+  const parsedExistingUtang = Number(totalUtang ?? 0);
+  const updatedUtang = parsedExistingUtang + parsedTotal;
+  const parsedCart = cart ? JSON.parse(cart as string) : [];
 
-        router.replace({
-            pathname: "/receipts/receipt",
-            params: {
-                amount: parsedTotal.toString(),
-                paymentMethod: "Utang",
-                customerName: customerName,
-            }
-        });
-    };
+  const handleConfirmUtang = async () => {
+    if (!customerId) {
+      Alert.alert("Error", "Customer is required");
+      return;
+    }
 
-    return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F5F5" }}>
-            <View style={{ flex: 1, padding: 16 }}>
-                <Text
-                    style={{
-                        fontSize: 24,
-                        fontWeight: "700",
-                        color: "#111827",
-                        marginBottom: 16,
-                    }}
-                >
-                    Confirm Utang
-                </Text>
+    if (parsedCart.length === 0) {
+      Alert.alert("Error", "No items in cart");
+      return;
+    }
 
-                <View
-                    style={{
-                        backgroundColor: "#FFFFFF",
-                        borderRadius: 20,
-                        padding: 18,
-                        marginBottom: 14,
-                    }}
-                >
-                    <Text
-                        style={{
-                            fontSize: 14,
-                            color: "#6B7280",
-                            marginBottom: 6,
-                        }}
-                    >
-                        Customer
-                    </Text>
-                    <Text
-                        style={{
-                            fontSize: 22,
-                            fontWeight: "700",
-                            color: "#111827",
-                            marginBottom: 6,
-                        }}
-                    >
-                        {customerName}
-                    </Text>
-                    <Text
-                        style={{
-                            fontSize: 14,
-                            color: "#6B7280",
-                        }}
-                    >
-                        {customerPhone}
-                    </Text>
-                </View>
+    try {
+      setLoading(true);
 
-                <View
-                    style={{
-                        backgroundColor: "#FFFFFF",
-                        borderRadius: 20,
-                        padding: 18,
-                        marginBottom: 14,
-                    }}
-                >
-                    <Text style={{ fontSize: 14, color: "#6B7280", marginBottom: 6 }}>
-                        New Utang Amount
-                    </Text>
-                    <Text style={{ fontSize: 28, fontWeight: "700", color: "#111827" }}>
-                        ₱{parsedTotal.toLocaleString()}
-                    </Text>
-                </View>
+      const payload = {
+        customer_id: Number(customerId),
+        customer_name: customerName || "Customer",
+        total_amount: parsedTotal,
+        payment_method: "Utang",
+        due_label: dueLabel || "No due label",
+        due_date: dueDate || null,
+        items: parsedCart.map((item: any) => ({
+          id: item.id,
+          name: item.name,
+          qty: item.qty,
+          price: item.price,
+        })),
+      };
 
-                <View
-                    style={{
-                        backgroundColor: "#FFFFFF",
-                        borderRadius: 20,
-                        padding: 18,
-                        marginBottom: 18,
-                    }}
-                >
-                    <Text style={{ fontSize: 14, color: "#6B7280", marginBottom: 8 }}>
-                        Existing Utang
-                    </Text>
-                    <Text
-                        style={{
-                            fontSize: 20,
-                            fontWeight: "700",
-                            color: "#111827",
-                            marginBottom: 14,
-                        }}
-                    >
-                        ₱{parsedExistingUtang.toLocaleString()}
-                    </Text>
+      console.log("UTANG PAYLOAD:", payload);
 
-                    <Text style={{ fontSize: 14, color: "#6B7280", marginBottom: 8 }}>
-                        Updated Total Utang
-                    </Text>
-                    <Text
-                        style={{
-                            fontSize: 24,
-                            fontWeight: "700",
-                            color: "#7F00FF",
-                        }}
-                    >
-                        ₱{updatedUtang.toLocaleString()}
-                    </Text>
-                </View>
+      const res = await api.post("/sales", payload);
 
-                <View style={{ marginTop: "auto" }}>
-                    <TouchableOpacity
-                        onPress={handleConfirmUtang}
-                        style={{
-                            backgroundColor: "#7F00FF",
-                            borderRadius: 18,
-                            paddingVertical: 16,
-                            alignItems: "center",
-                            marginBottom: 12,
-                        }}
-                    >
-                        <Text
-                            style={{
-                                color: "#FFFFFF",
-                                fontSize: 18,
-                                fontWeight: "700",
-                            }}
-                        >
-                            Confirm Utang
-                        </Text>
-                    </TouchableOpacity>
+      router.replace({
+        pathname: "/receipts/receipt",
+        params: {
+          amount: parsedTotal.toString(),
+          paymentMethod: "Utang",
+          customerName: customerName || "Customer",
+          saleId: String(res.data.sale.id),
+          cart: JSON.stringify(parsedCart),
+        },
+      });
+    } catch (error: any) {
+      console.log("UTANG ERROR:", error.response?.data || error.message);
 
-                    <TouchableOpacity
-                        onPress={() => router.back()}
-                        style={{
-                            backgroundColor: "#FFFFFF",
-                            borderRadius: 18,
-                            paddingVertical: 16,
-                            alignItems: "center",
-                            borderWidth: 1,
-                            borderColor: "#E5E7EB",
-                        }}
-                    >
-                        <Text
-                            style={{
-                                color: "#111827",
-                                fontSize: 16,
-                                fontWeight: "600",
-                            }}
-                        >
-                            Back
-                        </Text>
-                    </TouchableOpacity>
-                </View>
+      Alert.alert(
+        "Failed",
+        error.response?.data?.error || "Failed to save utang"
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F5F5" }}>
+      <View style={{ flex: 1, padding: 16 }}>
+        <Text
+          style={{
+            fontSize: 24,
+            fontWeight: "700",
+            color: "#111827",
+            marginBottom: 16,
+          }}
+        >
+          Confirm Utang
+        </Text>
+
+        {/* CUSTOMER */}
+        <View style={card}>
+          <Text style={label}>Customer</Text>
+          <Text style={title}>{customerName}</Text>
+          <Text style={sub}>{customerPhone}</Text>
+        </View>
+
+        {/* AMOUNT */}
+        <View style={card}>
+          <Text style={label}>New Utang</Text>
+          <Text style={big}>₱{parsedTotal.toLocaleString()}</Text>
+        </View>
+
+        {/* TOTAL */}
+        <View style={card}>
+          <Text style={label}>Updated Total</Text>
+          <Text style={{ ...big, color: "#7F00FF" }}>
+            ₱{updatedUtang.toLocaleString()}
+          </Text>
+        </View>
+
+        {/* DUE LABEL */}
+        <View style={card}>
+          <Text style={label}>Due Label</Text>
+          <TextInput
+            value={dueLabel}
+            onChangeText={setDueLabel}
+            placeholder="Ex: Due next week"
+            style={input}
+          />
+        </View>
+
+        {/* DUE DATE */}
+        <View style={card}>
+          <Text style={label}>Due Date (optional)</Text>
+          <TextInput
+            value={dueDate}
+            onChangeText={setDueDate}
+            placeholder="YYYY-MM-DD (ex: 2026-05-01)"
+            style={input}
+          />
+        </View>
+
+        {/* ITEMS */}
+        <View style={card}>
+          <Text style={{ fontWeight: "700", marginBottom: 10 }}>Items</Text>
+
+          {parsedCart.map((item: any) => (
+            <View
+              key={item.id}
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                marginBottom: 6,
+              }}
+            >
+              <Text>{item.name} x{item.qty}</Text>
+              <Text>₱{(item.price * item.qty).toLocaleString()}</Text>
             </View>
-        </SafeAreaView>
-    );
+          ))}
+        </View>
+
+        {/* BUTTON */}
+        <TouchableOpacity
+          disabled={loading}
+          onPress={handleConfirmUtang}
+          style={{
+            backgroundColor: loading ? "#9CA3AF" : "#7F00FF",
+            borderRadius: 18,
+            paddingVertical: 16,
+            alignItems: "center",
+            marginTop: 10,
+          }}
+        >
+          {loading ? (
+            <ActivityIndicator color="#FFF" />
+          ) : (
+            <Text style={{ color: "#FFF", fontWeight: "700", fontSize: 16 }}>
+              Confirm Utang
+            </Text>
+          )}
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
+  );
 }
+
+// STYLES
+const card = {
+  backgroundColor: "#FFFFFF",
+  borderRadius: 20,
+  padding: 16,
+  marginBottom: 12,
+};
+
+const label = {
+  fontSize: 13,
+  color: "#6B7280",
+  marginBottom: 4,
+};
+
+const title = {
+  fontSize: 20,
+  fontWeight: "700",
+  color: "#111827",
+};
+
+const sub = {
+  fontSize: 13,
+  color: "#6B7280",
+};
+
+const big = {
+  fontSize: 26,
+  fontWeight: "700",
+  color: "#111827",
+};
+
+const input = {
+  borderWidth: 1,
+  borderColor: "#E5E7EB",
+  borderRadius: 14,
+  paddingHorizontal: 12,
+  paddingVertical: 10,
+  color: "#111827",
+};

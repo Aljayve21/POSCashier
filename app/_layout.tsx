@@ -1,24 +1,26 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
-
-import { useColorScheme } from '@/hooks/use-color-scheme';
-
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
+import { ThemeProvider } from "@/context/ThemeContext";
+import { Stack } from "expo-router";
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+    <ThemeProvider>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="index" />
+        <Stack.Screen name="auth/login" />
+        <Stack.Screen name="dashboard/cashier-dashboard" />
+        <Stack.Screen name="products/products" />
+        <Stack.Screen name="inventory/inventory" />
+        <Stack.Screen name="customers/customers" />
+        <Stack.Screen name="payments/payment" />
+        <Stack.Screen name="payments/screen/payment-collect" />
+        <Stack.Screen name="sales/new-sale" />
+        <Stack.Screen name="transactions/transactions" />
+        <Stack.Screen name="reports/reports" />
+        <Stack.Screen name="profile/profile" />
+        <Stack.Screen name="receipts/receipt" />
+        <Stack.Screen name="utang/utang-customer" />
+        <Stack.Screen name="utang/utang-confirm" />
       </Stack>
-      <StatusBar style="auto" />
     </ThemeProvider>
   );
 }
