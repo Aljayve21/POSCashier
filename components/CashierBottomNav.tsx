@@ -14,6 +14,7 @@ type NavItem = {
 const navItems: NavItem[] = [
   { icon: "home", label: "Home", route: "/dashboard/cashier-dashboard" },
   { icon: "cart", label: "New Sale", route: "/sales/new-sale" },
+  { icon: "clipboard", label: "Orders", route: "/orders/orders" },
   { icon: "wallet", label: "Payments", route: "/payments/payment" },
   { icon: "receipt", label: "History", route: "/transactions/transactions" },
   { icon: "person", label: "Profile", route: "/profile/profile" },
@@ -41,17 +42,17 @@ export function CashierBottomNav({ activeRoute }: { activeRoute: string }) {
           width: "100%",
           maxWidth,
           backgroundColor: theme.navBg,
-          borderRadius: 28,
-          paddingVertical: 14,
-          paddingHorizontal: isTablet ? 18 : 10,
+          borderRadius: 30,
+          paddingVertical: isTablet ? 15 : 12,
+          paddingHorizontal: isTablet ? 18 : 12,
           flexDirection: "row",
-          justifyContent: "space-around",
+          justifyContent: "space-between",
           alignItems: "center",
           shadowColor: "#000",
-          shadowOpacity: theme.dark ? 0.5 : 0.1,
-          shadowRadius: 20,
-          shadowOffset: { width: 0, height: 4 },
-          elevation: 10,
+          shadowOpacity: theme.dark ? 0.38 : 0.14,
+          shadowRadius: 24,
+          shadowOffset: { width: 0, height: 10 },
+          elevation: 14,
           borderWidth: 1,
           borderColor: theme.border,
         }}
@@ -62,14 +63,31 @@ export function CashierBottomNav({ activeRoute }: { activeRoute: string }) {
           return (
             <TouchableOpacity
               key={nav.label}
-              style={{ alignItems: "center", paddingHorizontal: isTablet ? 14 : 8 }}
+              style={{
+                width: `${100 / navItems.length}%`,
+                alignItems: "center",
+                justifyContent: "center",
+                paddingVertical: 4,
+              }}
               onPress={() => router.push(nav.route as any)}
             >
-              <Ionicons
-                name={nav.icon}
-                size={isTablet ? 22 : 18}
-                color={active ? theme.accent : theme.textMuted}
-              />
+              <View
+                style={{
+                  minWidth: isTablet ? 62 : 48,
+                  paddingVertical: 7,
+                  paddingHorizontal: isTablet ? 12 : 10,
+                  borderRadius: 999,
+                  backgroundColor: active ? theme.accentLight : "transparent",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Ionicons
+                  name={nav.icon}
+                  size={isTablet ? 22 : 18}
+                  color={active ? theme.accent : theme.textMuted}
+                />
+              </View>
               <Text
                 style={{
                   marginTop: 4,
